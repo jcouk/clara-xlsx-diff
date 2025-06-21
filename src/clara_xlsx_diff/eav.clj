@@ -1,8 +1,6 @@
 (ns clara-xlsx-diff.eav
-  "EAV (Entity-Attribute-Value) transformation utilities for XLSX data")
-
-;; Simple EAV record for our use case
-(defrecord EAV [e a v])
+  "EAV (Entity-Attribute-Value) transformation utilities for XLSX data"
+  (:require [clara-eav.eav :as eav]))
 
 (defn cell->eav
   "Transform a single cell into EAV triples.
@@ -11,13 +9,13 @@
   [sheet-name cell version]
   (let [entity-id (str version ":" sheet-name ":" (:cell-ref cell))]
     [;; Core cell data as EAV records
-     (->EAV entity-id :cell/sheet sheet-name)
-     (->EAV entity-id :cell/ref (:cell-ref cell))
-     (->EAV entity-id :cell/row (:row cell))
-     (->EAV entity-id :cell/col (:col cell))
-     (->EAV entity-id :cell/value (:value cell))
-     (->EAV entity-id :cell/type (:type cell))
-     (->EAV entity-id :cell/version version)]))
+     (eav/->EAV entity-id :cell/sheet sheet-name)
+     (eav/->EAV entity-id :cell/ref (:cell-ref cell))
+     (eav/->EAV entity-id :cell/row (:row cell))
+     (eav/->EAV entity-id :cell/col (:col cell))
+     (eav/->EAV entity-id :cell/value (:value cell))
+     (eav/->EAV entity-id :cell/type (:type cell))
+     (eav/->EAV entity-id :cell/version version)]))
 
 (defn sheet->eav
   "Transform a single sheet into EAV triples"
