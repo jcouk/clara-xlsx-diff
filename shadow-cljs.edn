@@ -1,0 +1,35 @@
+{:source-paths ["src" "test"]
+ :dependencies [[thheller/shadow-cljs "2.26.2"]
+                [org.clojure/clojurescript "1.11.60"]
+                [cider/cider-nrepl "0.55.4"]
+                
+                ;; Clara Rules - ClojureScript compatible
+                [com.cerner/clara-rules "0.24.0"]
+                [ clyfe/clara-eav "0.1.9"]
+                ]
+
+ :nrepl {:port 7002
+         :middleware [cider.nrepl/cider-middleware]}
+ :dev-http {8080 "public"}
+ 
+ :builds {:lib {:target :node-library
+                :output-to "dist/clara-xlsx-diff.js"
+                :exports {:compare-xlsx clara-xlsx-diff.core/compare-xlsx}
+                :modules {:main {:init-fn clara-xlsx-diff.core/init!}}}
+          
+          :test {:target :node-test
+                 :output-to "dist/test.js"
+                 :ns-regexp ".*-test$"
+                 :autorun true}
+          
+          :browser {:target :browser
+                    :output-dir "public/js"
+                    :asset-path "/js"
+                    :modules {:main {:init-fn clara-xlsx-diff.browser/init!}}}
+          
+          :dev {:target :browser
+                :output-dir "public/js"
+                :asset-path "/js"
+                :devtools {:http-root "public"
+                           :http-port 8080}
+                :modules {:main {:init-fn clara-xlsx-diff.dev/init!}}}}}

@@ -1,0 +1,29 @@
+{
+  "name": "clara-xlsx-diff",
+  "version": "0.1.0",
+  "description": "XLSX comparison tool using Clara Rules and EAV triples",
+  "main": "dist/clara-xlsx-diff.js",
+  "scripts": {
+    "build": "shadow-cljs compile lib",
+    "build:browser": "shadow-cljs compile browser",
+    "dev": "shadow-cljs watch dev",
+    "dev:browser": "shadow-cljs watch browser",
+    "test:cljs": "shadow-cljs compile test && node dist/test.js",
+    "test:clj": "clojure -M:test",
+    "test": "npm run test:cljs",
+    "serve": "shadow-cljs watch dev"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "shadow-cljs": "^2.26.2"
+  },
+  "keywords": ["xlsx", "excel", "diff", "comparison", "clara-rules", "clojure"],
+  "author": "Your Name",
+  "license": "EPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/clara-xlsx-diff.git"
+  }
+}
