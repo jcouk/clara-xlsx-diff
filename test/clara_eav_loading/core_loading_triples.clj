@@ -26,6 +26,26 @@
   =>
   (println "Found 'Name' cell in entity:" ?e))
 
+;; Rule to find matching values between v1 and v2 versions (basic diff)
+;; Define some basic rules that work with clara-eav EAV triples
+(er/defrule find-sheet-names
+  "Find all sheet names from EAV triples"
+  [[?e :cell/sheet ?v]]
+  =>
+  (println "Found sheet:" ?v "for entity:" ?e))
+
+(er/defrule find-cell-values
+  "Find cells with specific values"
+  [[?e :cell/value ?v]]
+  =>
+  (println "Found cell value:" ?v "in entity:" ?e))
+
+(er/defrule find-name-cells
+  "Find cells containing 'Name'"
+  [[?e :cell/value "Name"]]
+  =>
+  (println "Found 'Name' cell in entity:" ?e))
+
 ;; Test function to demonstrate loading EAV data into Clara-EAV
 (defn test-clara-eav-integration []
   (println "=== Testing Clara-EAV with EAV data ===")
@@ -98,9 +118,11 @@
 
   
   (def session
-  (-> (er/defsession eav-session 'clara-eav-loading.core-loading-triples)
-      (er/upsert (custom-eav/xlsx->eav (xlsx/extract-data "test/sample_data.xlsx")))
-      (rules/fire-rules)))
+    (-> (er/defsession eav-session 'clara-eav-loading.core-loading-triples)
+        (er/upsert (custom-eav/xlsx->eav (xlsx/extract-data "test/sample_data.xlsx")))
+        ;; specify version 2, given xlsx->eav function defaults to v1 and expects [xlsx-data & {:keys [version] :or {version :v1}}]
+        (er/upsert (custom-eav/xlsx->eav (xlsx/extract-data "test/sample_data_2.xlsx") :version :v2))
+        (rules/fire-rules)))
 
    (fg/session->fact-graph (get session :session))
   
