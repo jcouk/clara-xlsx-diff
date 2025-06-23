@@ -1,4 +1,4 @@
-(ns clara-xlsx-diff.xlsx
+(ns clara-xlsx-diff.xlsx-jvm
   "XLSX file parsing and data extraction utilities"
   (:require [clojure.java.io :as io])
   (:import [org.apache.poi.ss.usermodel WorkbookFactory Sheet Row Cell CellType]

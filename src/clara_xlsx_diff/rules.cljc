@@ -330,7 +330,7 @@
           cell-records (->> (get-in session [:store :eav-index])
                             (filter (fn [[_entity-id data]]
                                       (and (map? data)
-                                           (some #(= "cell" (namespace %)) (keys data)))))
+                                           (some #(= "output" (namespace %)) (keys data)))))
                             (into []))
 
           ;; Send to portal for inspection
@@ -344,9 +344,7 @@
       ;; Return useful data for further inspection
       {:session session
        ;;  filter out all cells except those with :version :v1
-       :cell-records (filter #(and (= (:cell/version (second %)) :v1)
-                                   (> (:cell/count-neighbors-not-matching (second %)) 0))
-                             cell-records)
+       :cell-records cell-records
        :v1-data v1-data
        :v2-data v2-data
        :eav-v1 eav-v1

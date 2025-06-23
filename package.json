@@ -3,15 +3,25 @@
   "version": "0.1.0",
   "description": "XLSX comparison tool using Clara Rules and EAV triples",
   "main": "dist/clara-xlsx-diff.js",
+  "bin": {
+    "clara-xlsx-diff": "dist/clara-xlsx-diff-exe.js"
+  },
   "scripts": {
-    "build": "shadow-cljs compile lib",
-    "build:browser": "shadow-cljs compile browser",
-    "dev": "shadow-cljs watch dev",
-    "dev:browser": "shadow-cljs watch browser",
-    "test:cljs": "shadow-cljs compile test && node dist/test.js",
+    "build": "npx shadow-cljs compile lib exe",
+    "build:lib": "npx shadow-cljs compile lib",
+    "build:exe": "npx shadow-cljs compile exe",
+    "build:browser": "npx shadow-cljs compile browser",
+    "watch:lib": "npx shadow-cljs watch lib",
+    "dev": "npx shadow-cljs watch dev",
+    "dev:browser": "npx shadow-cljs watch browser",
+    "demo": "node demo.js",
+    "test-js": "node production-example.js",
+    "test:cljs": "npx shadow-cljs compile test && node dist/test.js",
     "test:clj": "clojure -M:test",
     "test": "npm run test:cljs",
-    "serve": "shadow-cljs watch dev"
+    "serve": "npx shadow-cljs watch dev",
+    "repl": "npx shadow-cljs cljs-repl lib",
+    "clean": "rm -rf dist/*"
   },
   "dependencies": {
     "xlsx": "^0.18.5"

@@ -14,8 +14,13 @@
  
  :builds {:lib {:target :node-library
                 :output-to "dist/clara-xlsx-diff.js"
-                :exports {:compare-xlsx clara-xlsx-diff.core/compare-xlsx}
+                :exports {:compareXlsx clara-xlsx-diff.core/compare-xlsx
+                          :main clara-xlsx-diff.core/main}
                 :modules {:main {:init-fn clara-xlsx-diff.core/init!}}}
+          
+          :exe {:target :node-script
+                :main clara-xlsx-diff.core/main
+                :output-to "dist/clara-xlsx-diff-exe.js"}
           
           :test {:target :node-test
                  :output-to "dist/test.js"

@@ -75,3 +75,13 @@
               attrs2 (set (map :a eav2))]
           (is (= attrs1 attrs2) 
               "Both files should generate the same types of attributes"))))))
+
+
+(comment
+  
+  (let [sample-data (xlsx/extract-data "test/sample_data.xlsx")
+        eav-triples (eav/xlsx->eav sample-data :version :v1)]
+    (take 5 eav-triples))
+
+
+  :rcf)
