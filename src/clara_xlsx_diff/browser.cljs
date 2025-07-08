@@ -1,7 +1,7 @@
 (ns clara-xlsx-diff.browser
   "Browser interface for XLSX diff functionality"
   (:require [clara-xlsx-diff.cljs.xlsx :as xlsx]
-            [clara-xlsx-diff.cljs.eav :as eav]
+            [clara-xlsx-diff.eav :as eav]
             [clojure.set :as set]))
 
 (defn log [& args]

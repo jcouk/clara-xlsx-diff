@@ -114,18 +114,3 @@
         :when (not (and (zero? row-offset) (zero? col-offset)))]
     [(+ row row-offset) (+ col col-offset)]))
 
-
-(defn parse-cell-ref
-  "Convert Excel cell reference (e.g., 'A1', 'B2') to [row col] indices.
-  Cross-platform implementation using reader conditionals."
-  [cell-ref]
-  (let [match #?(:clj  (re-matches #"([A-Z]+)(\d+)" cell-ref)
-                 :cljs (re-matches #"([A-Z]+)(\d+)" cell-ref))]
-    (when match
-      (let [[_ col-str row-str] match
-            row (dec #?(:clj  (Integer/parseInt row-str)
-                        :cljs (js/parseInt row-str)))
-            col (reduce (fn [acc char]
-                          (+ (* acc 26) (- (int char) (int \A) -1)))
-                        0 col-str)]
-        [row (dec col)]))))

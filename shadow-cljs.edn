@@ -14,27 +14,30 @@
  
  :builds {:lib {:target :node-library
                 :output-to "dist/clara-xlsx-diff.js"
-                :exports {:compareXlsx clara-xlsx-diff.core/compare-xlsx
-                          :main clara-xlsx-diff.core/main}
-                :modules {:main {:init-fn clara-xlsx-diff.core/init!}}}
-          
-          :exe {:target :node-script
-                :main clara-xlsx-diff.core/main
-                :output-to "dist/clara-xlsx-diff-exe.js"}
-          
-          :test {:target :node-test
-                 :output-to "dist/test.js"
-                 :ns-regexp ".*-test$"
-                 :autorun true}
-          
-          :browser {:target :browser
-                    :output-dir "public/js"
-                    :asset-path "/js"
-                    :modules {:main {:init-fn clara-xlsx-diff.browser/init!}}}
-          
-          :dev {:target :browser
-                :output-dir "public/js"
-                :asset-path "/js"
-                :devtools {:http-root "public"
-                           :http-port 8080}
-                :modules {:main {:init-fn clara-xlsx-diff.dev/init!}}}}}
+                :exports {:compareXlsxFiles clara-xlsx-diff.core/compare-xlsx-files
+                          :compareXlsx clara-xlsx-diff.core/compare-xlsx
+                          :init clara-xlsx-diff.core/init}
+                :modules {:main {:init-fn clara-xlsx-diff.core/init}}}
+                                                  
+           :demo {:target :node-script
+                  :main clara-xlsx-diff.rules-test/main
+                  :output-to "dist/demo.js"}
+                                                  
+           :test {:target :node-test
+                  :output-to "dist/test.js"
+                  :ns-regexp ".*-test$"
+                  :autorun true}
+                                                  
+           :browser {:target :browser
+                     :output-dir "public/js"
+                     :asset-path "/js"
+                     :modules {:main {:init-fn clara-xlsx-diff.browser/init!}}}
+                                                  
+           :dev {:target :browser
+                 :output-dir "public/js"
+                 :asset-path "/js"
+                 :devtools {:http-root "public"
+                            :http-port 8080}
+                 :modules {:main {:init-fn clara-xlsx-diff.dev/init!}}}
+           
+           :node-repl {:target :node-repl}}}

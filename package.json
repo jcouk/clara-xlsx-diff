@@ -7,29 +7,40 @@
     "clara-xlsx-diff": "dist/clara-xlsx-diff-exe.js"
   },
   "scripts": {
-    "build": "npx shadow-cljs compile lib exe",
-    "build:lib": "npx shadow-cljs compile lib",
-    "build:exe": "npx shadow-cljs compile exe",
+    "build": "./build.sh",
+    "build:lib": "npx shadow-cljs release lib",
+    "build:demo": "npx shadow-cljs release demo",
     "build:browser": "npx shadow-cljs compile browser",
+    "build:clara-rules": "lein cljsbuild once test",
+    "build:all": "npm run build:lib && npm run build:clara-rules",
     "watch:lib": "npx shadow-cljs watch lib",
     "dev": "npx shadow-cljs watch dev",
     "dev:browser": "npx shadow-cljs watch browser",
-    "demo": "node demo.js",
-    "test-js": "node production-example.js",
+    "demo": "node dist/demo.js",
+    "example": "node example.js",
     "test:cljs": "npx shadow-cljs compile test && node dist/test.js",
+    "test:clara-rules": "lein cljsbuild once test && node target/test.js",
     "test:clj": "clojure -M:test",
-    "test": "npm run test:cljs",
+    "test": "npm run test:clara-rules",
+    "test:all": "npm run test:clj && npm run test:clara-rules && npm run test:cljs",
     "serve": "npx shadow-cljs watch dev",
     "repl": "npx shadow-cljs cljs-repl lib",
-    "clean": "rm -rf dist/*"
+    "clean": "rm -rf dist/* target/*"
   },
   "dependencies": {
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "shadow-cljs": "^2.26.2"
+    "shadow-cljs": "^2.28.23"
   },
-  "keywords": ["xlsx", "excel", "diff", "comparison", "clara-rules", "clojure"],
+  "keywords": [
+    "xlsx",
+    "excel",
+    "diff",
+    "comparison",
+    "clara-rules",
+    "clojure"
+  ],
   "author": "Your Name",
   "license": "EPL-2.0",
   "repository": {

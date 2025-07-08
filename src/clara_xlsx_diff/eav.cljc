@@ -7,6 +7,7 @@
   
   Each cell becomes an entity with attributes for its properties."
   [sheet-name cell version]
+  ;; (println "testing whats inside the cell" cell)
   (let [entity-id (str version ":" sheet-name ":" (:cell-ref cell))]
     [;; Core cell data as EAV records
      (eav/->EAV entity-id :cell/sheet sheet-name)
@@ -22,6 +23,13 @@
   [sheet version]
   (let [sheet-name (:sheet-name sheet)]
     (mapcat #(cell->eav sheet-name % version) (:cells sheet))))
+
+
+(defn extract-facts
+  "Extracts the :fact key from each map in a sequence."
+  [sequence-of-matches]
+  (map :fact sequence-of-matches))
+
 
 (defn xlsx->eav
   "Transform XLSX data structure into EAV triples.
@@ -50,9 +58,10 @@
   (require '[clara-xlsx-diff.xlsx :as xlsx])
   
   ;; Transform sample data
-  (def sample-data (xlsx/extract-data "test/resources/sample.xlsx"))
-  (def eav-triples (xlsx->eav sample-data :version :original))
-  
+  (def sample-data (xlsx/extract-data "test/sample_data.xlsx"))
+  (def eav-triples (xlsx->eav sample-data :version :v1))
+
+  (def eav-v2 (xlsx->eav (xlsx/extract-data "test/sample_data.xlsx") :version :v2))
   ;; Inspect EAV structure
   (take 10 eav-triples)
   

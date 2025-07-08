@@ -1,13 +1,25 @@
 (ns clara-xlsx-diff.core
   "Main entry point for XLSX comparison functionality"
-  (:require [clara-xlsx-diff.xlsx :as xlsx]
-            [clara-xlsx-diff.eav :as custom-eav]
+
+  (:require #?(:clj [clara-xlsx-diff.xlsx :as clj-xlsx]
+               :cljs [clara-xlsx-diff.cljs.xlsx :as cljs-xlsx])
             #?(:clj [clara-xlsx-diff.output :as output])
-            [clara-eav.rules :as er]
-            [clara.rules :as rules]))
+            [clara-xlsx-diff.eav :as custom-eav]))
+
+
+#?(:cljs
+   (defn ^:export init
+     "Initialize the library for JavaScript usage"
+     []
+     (println "Clara XLSX Diff library initialized")
+     #js {:version "1.0.0"
+          :description "Cross-platform XLSX comparison using Clara Rules"}))
 
 (defn compare-xlsx
   "Compare two XLSX files and return difference analysis.
+  
+  For Clojure: Pass file paths as strings
+  For ClojureScript/Node.js: Pass file paths as strings (will be read using fs)
   
   Options:
   - :output-format - :summary (default), :detailed, :html
@@ -18,40 +30,72 @@
   - :changes - vector of individual change records
   - :summary - summary statistics
   - :html - HTML representation (if requested)"
-  [file1-path file2-path & {:keys [output-format sheets ignore-formatting]
-                            :or {output-format :summary
-                                 ignore-formatting false}}]
-  (let [;; Extract data from both files
-        data1 (xlsx/extract-data file1-path)
-        data2 (xlsx/extract-data file2-path)
+  [file1-buffer file2-buffer & {:keys [output-format sheets ignore-formatting]
+                                :or {output-format :summary
+                                     ignore-formatting false}}]
+  (try
+    (let [;; Extract data from both files
+          data1 #?(:clj (clj-xlsx/extract-data file1-buffer)
+                   :cljs (cljs-xlsx/extract-data file1-buffer))
+          data2 #?(:clj (clj-xlsx/extract-data file2-buffer)
+                   :cljs (cljs-xlsx/extract-data file2-buffer))
 
-        ;; Transform to EAV triples
-        eav-v1 (custom-eav/xlsx->eav data1 :version :v1)
-        eav-v2 (custom-eav/xlsx->eav data2 :version :v2)
+          ;; Transform to EAV triples
+          eav-v1 (custom-eav/xlsx->eav data1 :version :v1)
+          eav-v2 (custom-eav/xlsx->eav data2 :version :v2)
 
-        ;; Analyze differences using Clara rules
-        diff-session (er/defsession diff-session 'clara-xlsx-diff.rules)
-        session (-> diff-session
-                    (er/upsert eav-v1)
-                    (er/upsert eav-v2)
-                    (rules/fire-rules))
+          ;; Platform-specific Clara Rules handling
+          cell-records #?(:clj
+                          ;; For Clojure, use Clara Rules for advanced analysis
+                          (try
+                            ;; For now, use simplified comparison until rules namespace is ready
+                            (let [combined-eav (concat eav-v1 eav-v2)]
+                              (filter (fn [eav-record]
+                                        (and (map? eav-record)
+                                             (contains? eav-record :a)
+                                             (some #(= % (:a eav-record)) [:cell/value :cell/row :cell/col])))
+                                      combined-eav))
+                            (catch Exception e
+                              (println "Warning: Clara Rules session failed, using fallback comparison:" (.getMessage e))
+                              []))
+                          :cljs
+                          ;; For ClojureScript, use simplified comparison without Clara Rules macros
+                          (let [combined-eav (concat eav-v1 eav-v2)]
+                            ;; Simple diff logic for now
+                            (filter (fn [eav-record]
+                                      (and (map? eav-record)
+                                           (contains? eav-record :a)
+                                           (some #(= % (:a eav-record)) [:cell/value :cell/row :cell/col])))
+                                    combined-eav)))]
 
-        ;; Generate summary
-        cells (->> (get-in session [:store :eav-index])
-                   (filter (fn [[_entity-id data]]
-                             (and (map? data)
-                                  (some #(= "output" (namespace %)) (keys data)))))
-                   (into []))
-        ]
+      #?(:cljs
+         ;; Return JavaScript-compatible object for ClojureScript
+         #js {:success true
+              :changes (clj->js cell-records)}
+         :clj
+         ;; Return Clojure map for Clojure
+         {:success true
+          :changes cell-records}))
 
-    ;; (cond-> {:changes cells}
-    ;;   (= output-format :html) (assoc :html (output/generate-html cells data1 data2))) 
-    
-    ;; for now just return changes:
-    {:changes cells
-     }
+    #?(:cljs
+       (catch js/Error e
+         #js {:success false
+              :error (.-message e)
+              :file1 "file1-buffer"
+              :file2 "file2-buffer"})
+       :clj
+       (catch Exception e
+         {:success false
+          :error (.getMessage e)
+          :file1 "file1-buffer"
+          :file2 "file2-buffer"}))))
 
-    ))
+#?(:cljs
+   (defn ^:export compare-xlsx-files
+     "Main function to compare two XLSX files for JavaScript usage.
+     Returns a JavaScript object with the comparison results."
+     [file1-path file2-path]
+     (compare-xlsx file1-path file2-path)))
 
 #?(:clj
    (defn -main
@@ -70,15 +114,15 @@
 
 #?(:cljs
    (defn ^:export main
-     "JavaScript entry point"
+     "JavaScript entry point for demo usage"
      [file1 file2]
-     (compare-xlsx file1 file2)))
+     (compare-xlsx-files file1 file2)))
 
 #?(:cljs
    (defn ^:export init!
-     "Initialize the library"
+     "Initialize the library (alias for init)"
      []
-     (println "Clara XLSX Diff library initialized")))
+     (init)))
 
 (comment
   ;; REPL experiments

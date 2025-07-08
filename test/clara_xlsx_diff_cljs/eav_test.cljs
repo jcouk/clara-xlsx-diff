@@ -2,7 +2,7 @@
   "Tests for ClojureScript EAV conversion"
   (:require [cljs.test :refer [deftest is testing]]
             [clojure.string :as str]
-            [clara-xlsx-diff.cljs.eav :as eav]))
+            [clara-xlsx-diff.eav :as eav]))
 
 (deftest eav-record-creation-test
   (testing "EAV record creation and structure"
