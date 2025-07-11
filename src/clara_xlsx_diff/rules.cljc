@@ -108,7 +108,7 @@
   [[?e :cell/col ?col1]]
   [[?e :cell/sheet ?sheet]]
   [[?e :cell/version ?version]]
-  [:not (:and [[_ :column/col ?col1]] [[_ :column/sheet ?sheet]] [[_ :column/version ?version]])]
+  [:not (:and [[?matchEid :column/col ?col1]] [[?matchEid :column/sheet ?sheet]] [[?matchEid :column/version ?version]])]
   =>
   (er/upsert-unconditional! [["newColumnEntityStart" :column/col ?col1]
                              ["newColumnEntityStart" :column/sheet ?sheet]
@@ -118,10 +118,10 @@
 
 (er/defrule !row-entities
   "Create entites for each cell on the same row"
-  [[?e :cell/col ?row1]]
+  [[?e :cell/row ?row1]]
   [[?e :cell/sheet ?sheet]]
   [[?e :cell/version ?version]]
-  [:not (:and [[_ :column/col ?row1]] [[_ :column/sheet ?sheet]] [[_ :column/version ?version]])]
+  [:not (:and [[?matchEid :column/row ?row1]] [[?matchEid :column/sheet ?sheet]] [[?matchEid :column/version ?version]])]
   =>
   (er/upsert-unconditional! [["newColumnEntityStart" :row/row ?row1]
                              ["newColumnEntityStart" :row/sheet ?sheet]
@@ -281,20 +281,43 @@
                  ["newValueOutput" :output/sheetAndVersionIdentif sheetAndVersionIdentif]])))
 
 
+
+;; Learned that if you can identify a keyword- the best thing to do is to use the keyword as the entity id
+;; i think the truth value logic works really hard otherwise if the entity being created is the same record you're checking
+
 (er/defrule create-summary-results-records
   "Create a new record type of summary to help organize the results"
   [[?e1 :output/sheetAndVersionIdentif ?sheetAndVersionIdentif]]
   [[?e1 :output/changeType ?changeType]]
   [[?e1 :output/version ?version]]
-  [[?e1 :output/sheet ?sheet]]
+  [[?e1 :output/sheet ?sheet]] 
   [?counts <- (accum/count) :from [[?e1]]]
+  ;; [?values <- er/entities :from [[?e1]]]  ;; something interesting is happening here where the count accumulator is working fine but the er/entites accumulator is only returning the one value
   =>
-  (er/upsert! [[(keyword ?sheetAndVersionIdentif) :summary/sheetAndVersionIdentif ?sheetAndVersionIdentif]
-               [(keyword ?sheetAndVersionIdentif) :summary/sheet ?sheet]
+  (er/upsert! [[(keyword ?sheetAndVersionIdentif) :summary/sheet ?sheet]
                [(keyword ?sheetAndVersionIdentif) :summary/version ?version]
                [(keyword ?sheetAndVersionIdentif) :summary/changeType ?changeType]
-               [(keyword ?sheetAndVersionIdentif) :summary/count ?counts]]
+               [(keyword ?sheetAndVersionIdentif) :summary/count ?counts]
+              ;; [(keyword ?sheetAndVersionIdentif) :summary/values ?values]
+               ] 
               ))
+
+
+
+
+;; (er/defrule create-test-results-records
+;;   "Create a new record type of summary to help organize the results"
+;;   [:not [[:first :wackyValue/sheet]]]
+;;   [[?e1 :output/changeType ?changeType]]
+;;   [[?e1 :output/version ?version]]
+;;   [[?e1 :output/sheet ?sheet]]
+;;   =>
+;;   (er/upsert! [[:first  :wackyValue/triggerRule "simpleNot"]
+;;                [:first  :wackyValue/sheet ?sheet]
+;;                [:first  :wackyValue/version ?version]
+;;                [:first  :wackyValue/changeType ?changeType]]))
+
+
 
 
 (er/defquery get-all-outputs
