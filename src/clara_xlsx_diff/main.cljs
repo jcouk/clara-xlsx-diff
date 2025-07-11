@@ -17,11 +17,9 @@
   [eav1 eav2]
   (let [session1 (eav.rules/upsert session (concat eav1 eav2))
         session2 (rules/fire-rules session1)
-        output-records (->> (get-in session2 [:store :eav-index])
-                            (filter (fn [[_entity-id data]]
-                                      (and (map? data)
-                                           (some #(= "output" (namespace %)) (keys data)))))
-                            (into []))]
+        output-records (map (fn [{:keys [?output]}]
+                              (first ?output))
+                        (rules/query session2 clara-xlsx-diff.rules/get-all-outputs))]
     output-records))
 
 (defn ^:export compare-xlsx-buffers

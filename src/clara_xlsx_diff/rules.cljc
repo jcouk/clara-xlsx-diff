@@ -12,9 +12,10 @@
    [clara-xlsx-diff.eav :as eav]
    #?@(:clj [[clara.rules :as rules]
              [clara-eav.rules :as er]
-             [portal.api :as p]
-             ]
+             [clara.rules.accumulators :as accum]
+             [portal.api :as p]]
        :cljs [[clara.rules :as rules :include-macros true]
+              [clara.rules.accumulators :as accum :include-macros true]
               [clara-eav.rules :as er :include-macros true]])))
 
 ;; Simple rule to find cells that have matching values between v1 and v2 versions  
@@ -197,15 +198,16 @@
   [[?e1 :cell/ref ?ref]]
   [:not  [[?celMatchEdi :cellMatch/v1Eid ?e1]]]
   =>
-  (er/upsert! [["newValueOutput" :output/col ?col]
-               ["newValueOutput" :output/row ?row]
-               ["newValueOutput" :output/sheet ?sheet]
-               ["newValueOutput" :output/ref ?ref]
-               ["newValueOutput" :output/value ?newValue]
-               ["newValueOutput" :output/matchValue ?matchValue]
-               ["newValueOutput" :output/changeType "New"]
-               ["newValueOutput" :output/version :v1]
-               ]))
+  (let [sheetAndVersionIdentif (str ?sheet "-" :v1 "-New")]
+    (er/upsert! [["newValueOutput" :output/col ?col]
+                 ["newValueOutput" :output/row ?row]
+                 ["newValueOutput" :output/sheet ?sheet]
+                 ["newValueOutput" :output/ref ?ref]
+                 ["newValueOutput" :output/value ?newValue]
+                 ["newValueOutput" :output/matchValue ?matchValue]
+                 ["newValueOutput" :output/changeType "New"]
+                 ["newValueOutput" :output/version :v1]
+                 ["newValueOutput" :output/sheetAndVersionIdentif sheetAndVersionIdentif]])))
 
 
 (er/defrule generate-cell-output-for-deleted-value
@@ -220,14 +222,16 @@
   [[?e1 :cell/ref ?ref]]
   [:not  [[?celMatchEdi :cellMatch/v1Eid ?e1]]]
   =>
-  (er/upsert! [["newValueOutput" :output/col ?col]
-               ["newValueOutput" :output/row ?row]
-               ["newValueOutput" :output/sheet ?sheet]
-               ["newValueOutput" :output/ref ?ref]
-               ["newValueOutput" :output/value ?newValue]
-               ["newValueOutput" :output/matchValue ?matchValue]
-               ["newValueOutput" :output/changeType "Deleted"]
-               ["newValueOutput" :output/version :v2]]))
+  (let [sheetAndVersionIdentif (str ?sheet "-" :v2 "-Deleted")]
+    (er/upsert! [["newValueOutput" :output/col ?col]
+                 ["newValueOutput" :output/row ?row]
+                 ["newValueOutput" :output/sheet ?sheet]
+                 ["newValueOutput" :output/ref ?ref]
+                 ["newValueOutput" :output/value ?newValue]
+                 ["newValueOutput" :output/matchValue ?matchValue]
+                 ["newValueOutput" :output/changeType "Deleted"]
+                 ["newValueOutput" :output/version :v2]
+                 ["newValueOutput" :output/sheetAndVersionIdentif sheetAndVersionIdentif]])))
 
 
 (er/defrule generate-cell-output-for-change-value
@@ -242,15 +246,16 @@
   [[?e1 :cell/ref ?ref]]
   [[?celMatchEdi :cellMatch/v1Eid ?e1]]
   =>
-  (er/upsert! [["newValueOutput" :output/col ?col]
-               ["newValueOutput" :output/row ?row]
-               ["newValueOutput" :output/sheet ?sheet]
-               ["newValueOutput" :output/ref ?ref]
-               ["newValueOutput" :output/value ?newValue]
-               ["newValueOutput" :output/matchValue ?matchValue]
-               ["newValueOutput" :output/changeType "Change"]
-               ["newValueOutput" :output/version ?version]
-               ]))
+  (let [sheetAndVersionIdentif (str ?sheet "-" ?version "-Changed")]
+    (er/upsert! [["newValueOutput" :output/col ?col]
+                 ["newValueOutput" :output/row ?row]
+                 ["newValueOutput" :output/sheet ?sheet]
+                 ["newValueOutput" :output/ref ?ref]
+                 ["newValueOutput" :output/value ?newValue]
+                 ["newValueOutput" :output/matchValue ?matchValue]
+                 ["newValueOutput" :output/changeType "Change"]
+                 ["newValueOutput" :output/version ?version]
+                 ["newValueOutput" :output/sheetAndVersionIdentif sheetAndVersionIdentif]])))
 
 
 (er/defrule generate-the-remaining-cell-output
@@ -264,22 +269,45 @@
   [[?e1 :cell/row ?row]]
   [[?e1 :cell/ref ?ref]]
   =>
-  (er/upsert! [["newValueOutput" :output/col ?col]
-               ["newValueOutput" :output/row ?row]
-               ["newValueOutput" :output/sheet ?sheet]
-               ["newValueOutput" :output/ref ?ref]
-               ["newValueOutput" :output/value ?newValue]
-               ["newValueOutput" :output/matchValue ?matchValue]
-               ["newValueOutput" :output/changeType "None"]
-               ["newValueOutput" :output/version ?version]
-               ]))
+  (let [sheetAndVersionIdentif (str ?sheet "-" ?version "-Unchanged")]
+    (er/upsert! [["newValueOutput" :output/col ?col]
+                 ["newValueOutput" :output/row ?row]
+                 ["newValueOutput" :output/sheet ?sheet]
+                 ["newValueOutput" :output/ref ?ref]
+                 ["newValueOutput" :output/value ?newValue]
+                 ["newValueOutput" :output/matchValue ?matchValue]
+                 ["newValueOutput" :output/changeType "None"]
+                 ["newValueOutput" :output/version ?version]
+                 ["newValueOutput" :output/sheetAndVersionIdentif sheetAndVersionIdentif]])))
 
+
+(er/defrule create-summary-results-records
+  "Create a new record type of summary to help organize the results"
+  [[?e1 :output/sheetAndVersionIdentif ?sheetAndVersionIdentif]]
+  [[?e1 :output/changeType ?changeType]]
+  [[?e1 :output/version ?version]]
+  [[?e1 :output/sheet ?sheet]]
+  [?counts <- (accum/count) :from [[?e1]]]
+  =>
+  (er/upsert! [[(keyword ?sheetAndVersionIdentif) :summary/sheetAndVersionIdentif ?sheetAndVersionIdentif]
+               [(keyword ?sheetAndVersionIdentif) :summary/sheet ?sheet]
+               [(keyword ?sheetAndVersionIdentif) :summary/version ?version]
+               [(keyword ?sheetAndVersionIdentif) :summary/changeType ?changeType]
+               [(keyword ?sheetAndVersionIdentif) :summary/count ?counts]]
+              ))
 
 
 (er/defquery get-all-outputs
   "Get all output cells generated by the rules"
   []
   [[?e :output/changeType]]
+  [?output <- er/entities :from [[?e]]])
+
+
+(er/defquery get-all-summary-results
+  "get all the sheets and count the number of Changes, New, and Deleted items"
+  []
+  [[?e :summary/count ?count]]
   [?output <- er/entities :from [[?e]]])
 
 (comment
@@ -295,16 +323,46 @@
                    (er/upsert eav-v1)
                    (er/upsert eav-v2)
                    (rules/fire-rules)))
-  
-(def p (p/open))
-(add-tap #'p/submit)
-  
+
+  (def p (p/open))
+  (add-tap #'p/submit)
+
   (tap> (get-in results [:store :eav-index]))
- (tap> results)
+  (tap> results)
 
   (get-in results [:store])
 
-  (tap> (rules/query results get-all-ouputs))
+  (tap> (rules/query results get-all-outputs))
+
+  (tap> (rules/query results get-all-summary-results))
+
+  (def query-results  (rules/query results get-all-outputs))
+
+
+  (tap> (map (fn [{:keys [?output]}]
+               (first ?output))  ; output is a sequence, so take the first (and only) item
+             query-results))
+  ;; Example output query
+  ;; ({:?e 3450,
+  ;;  :?output
+  ;;  ({:output/row 3,
+  ;;    :eav/eid 3450,
+  ;;    :output/ref "B4",
+  ;;    :output/sheet "Rules",
+  ;;    :output/value "department = \"Sales\"",
+  ;;    :output/col 1,
+  ;;    :output/changeType "New",
+  ;;    :output/matchValue "R002",
+  ;;    :output/version :v1})})
+  ;; turn the example output into a sequence of maps with the result of :?output
+
+
+  (-> (rules/query results get-all-outputs)
+      (map (fn [{:?e eav-eid :?output output}]
+             (assoc output))))
+
+  ()
+
 
   (rules/fire-rules result-session)
 
