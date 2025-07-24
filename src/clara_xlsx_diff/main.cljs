@@ -17,10 +17,17 @@
   [eav1 eav2]
   (let [session1 (eav.rules/upsert session (concat eav1 eav2))
         session2 (rules/fire-rules session1)
-        output-records (map (fn [{:keys [?output]}]
-                              (first ?output))
-                        (rules/query session2 clara-xlsx-diff.rules/get-all-outputs))]
-    output-records))
+        output-records  (->> (get-in session2 [:store :eav-index])
+                             (filter (fn [[_entity-id data]]
+                                       (and (map? data)
+                                            (some #(= "output" (namespace %)) (keys data)))))
+                             (into [])
+                             (map second))
+        summary-results (map (fn [{:keys [?output]}]
+                               (first ?output))
+                             (rules/query session2 clara-xlsx-diff.rules/get-all-summary-results))]
+    {:cells output-records
+     :summary summary-results}))
 
 (defn ^:export compare-xlsx-buffers
   "Compare two XLSX files from buffers (ideal for git workflows).
@@ -53,13 +60,8 @@
        #js {:success true
             :file1 file1-name
             :file2 file2-name
-            :summary #js {:totalCells1 (:total-cells data1)
-                          :totalCells2 (:total-cells data2)
-                          :sheetsCompared (count (:sheets data1))
-                          :changesFound (count changes)}
-            :changes (clj->js changes)
-            :data1 (clj->js data1)
-            :data2 (clj->js data2)})
+            :summary (clj->js (:summary changes))
+            :cells (clj->js (:cells changes))})
 
      (catch js/Error e
        #js {:success false
