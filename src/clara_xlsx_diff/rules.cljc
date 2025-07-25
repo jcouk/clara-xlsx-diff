@@ -65,7 +65,6 @@
            maxCol (apply max (mapv #(get-in % [:cell/col]) ?sheetInfoEntities))
            ]
       (er/upsert! [
-                   [?e1 :sheetInfo/entities ?sheetInfoEntities]
                    [?e1 :sheetInfo/maxRow maxRow]
                    [?e1 :sheetInfo/maxCol maxCol]])))
 
