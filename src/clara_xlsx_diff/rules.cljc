@@ -21,7 +21,7 @@
 ;; Simple rule to find cells that have matching values between v1 and v2 versions  
 (er/defrule match?-cell-comparison
   "Find cells where v1 and v2 have the same value in the same sheet/position"
-    {:salience 1}
+  {:salience 1}
   [[?e1 :cell/version :v1]]
   [[?e1 :cell/sheet ?sheet]]
   [[?e1 :cell/ref ?cell-ref]]
@@ -29,16 +29,46 @@
   [[?e2 :cell/version :v2]]
   [[?e2 :cell/sheet ?sheet]]    ; same sheet
   [[?e2 :cell/ref ?cell-ref]]   ; same cell reference
-  [[?e2 :cell/value ?value2]]    ; same value
+  [[?e2 :cell/value ?value2]]    ; possibly different value
   =>
   (let [matching? (= ?value1 ?value2)
-        cell-sheet (keyword (str ?cell-ref "-" ?sheet))]
+        cell-sheet (keyword (str ?cell-ref "-" ?sheet))
+        sheet-version-v1 (keyword (str ?sheet "-" :v1))
+        sheet-version-v2 (keyword (str ?sheet "-" :v2))
+        ]
     (er/upsert-unconditional! [[?e1 :cell/match? matching?]
                                [?e1 :cell/matchValue ?value2]
                                [?e1 :cell/cellSheet cell-sheet]
+                               [?e1 :cell/sheetVersion sheet-version-v1]
                                [?e2 :cell/match? matching?]
                                [?e2 :cell/matchValue ?value1]
-                               [?e2 :cell/cellSheet cell-sheet]])))
+                               [?e2 :cell/cellSheet cell-sheet]
+                               [?e2 :cell/sheetVersion sheet-version-v2]
+                               ])))
+
+
+(er/defrule !sheet-version-eid 
+  ;; [[?e1 :cell/sheetVersion ?sheetVersion]]
+  [?rowEids <- er/entities :from [:eav/all 
+                                  ;; (= (:e this) ?e1)
+                                  (= (:a this) :cell/sheet)
+                                  (= (:v this)  ?sheet)]]
+  =>(let [extractedEid (mapv :eav/eid ?rowEids)]
+  (er/upsert! [(keyword ?sheet) :sheetInfo/Eids extractedEid])))
+
+
+(er/defrule !sheet-version-max-row
+  [[?e1 :sheetInfo/Eids ?sheetInfoEids]]
+  [?sheetInfoEntities <- er/entities :from [:eav/all
+                                            (some #(= (:e this) %) ?sheetInfoEids)]]
+   =>(let [maxRow (apply max (mapv #(get-in % [:cell/row]) ?sheetInfoEntities))
+           maxCol (apply max (mapv #(get-in % [:cell/col]) ?sheetInfoEntities))
+           ]
+      (er/upsert! [
+                   [?e1 :sheetInfo/entities ?sheetInfoEntities]
+                   [?e1 :sheetInfo/maxRow maxRow]
+                   [?e1 :sheetInfo/maxCol maxCol]])))
+
 
 ;; if the cell isn't matching, see if there is a cell on the other sheet and other version which does match
 (er/defrule !cellMatch-find-match-if-possible
@@ -65,8 +95,8 @@
 
 
 (er/defrule RowColPair-transform-row-col-pair
-  "Transform row and column into a pair for easier neighbor calculations"
-    {:salience 200}
+  "Transform row and column into a pair for easier neighbor calculations" 
+  {:salience 200}
   [[?e1 :cell/row ?row]]
   [[?e1 :cell/col ?col]]
   =>
@@ -237,9 +267,9 @@
   [[?e1 :cell/ref ?ref]]
   ;; [:not  [[?cellSheet :cellMatch/v2Eid]]]
   [:not [:eav/all
-     (= (:e this) ?cellSheet)
-     (= (:a this) :cellMatch/v2Eid) 
-     (= (:v this) ?e1)]]
+         (= (:e this) ?cellSheet)
+         (= (:a this) :cellMatch/v2Eid) 
+         (= (:v this) ?e1)]]
   =>
   (let [sheetAndVersionIdentif (str ?ref "-" ?sheet "-" :v2 "-Deleted")]
     (er/upsert! [[(keyword sheetAndVersionIdentif) :output/col ?col]
@@ -365,6 +395,26 @@
 ;;                [:first  :wackyValue/sheet ?sheet]
 ;;                [:first  :wackyValue/version ?version]
 ;;                [:first  :wackyValue/changeType ?changeType]]))
+
+
+
+;; (er/defrule extract-sheet-data
+;;   "Extract the sheet name and version from the output entity" 
+;;   [[?e1 :cell/version ?version]]
+;;   [[?e1 :cell/sheet ?sheet]]
+;;   [[?e1 :cell/sheetVerfsion ?sheetVersion]]
+;;   [?allSheetVersionsEids <- er/entities :from [:eav/all
+;;                                      (= (:a this) :cell/sheetVersion)
+;;                                      (= (:v this) ?sheetVersion)]]
+;;   [?maxCol <- (accum/max :col) :from [[?e1 :cell/col]]]
+;;   [?maxRow <- (accum/max :row) :from [[?e1 :cell/row]]]
+
+;;   =>
+;;   (let [sheet-version-identif (str ?sheet "-" ?version)]
+;;     (er/upsert! [[(keyword sheet-version-identif) :sheetData/sheet ?sheet]
+;;                  [(keyword sheet-version-identif) :sheetData/version ?version]
+;;                  [(keyword sheet-version-identif) :sheetData/maxCol ?maxCol]
+;;                  [(keyword sheet-version-identif) :sheetData/maxRow ?maxRow]])))
 
 
 
@@ -507,63 +557,96 @@
 
 
 
-  (def testdata '({:cell/row-col-pair {:row 0, :col 2},
+  (def testdata2 '({:cell/row-col-pair {:row 1, :col 0},
                    :cell/version :v1,
-                   :cell/ref "C1",
-                   :eav/eid 64,
+                   :cell/ref "A2",
+                   :eav/eid 7,
+                   :cell/matchValue "Alice Johnson",
+                   :cell/sheetVersion :Employees-:v1,
                    :cell/type "STRING",
-                   :cell/value "Output: Bonus",
-                   :cell/sheet "Decision_Table",
-                   :cell/matchValue "Output: Bonus",
+                   :cell/value "Alice Johnson",
+                   :cell/sheet "Employees",
                    :cell/match? true,
-                   :cell/row 0,
-                   :cell/col 2,
-                   :cell/neighbor
-                   ({:row 1, :col 1}
-                    {:row 1, :col 3}
-                    {:row 0, :col 3}
-                    {:row 1, :col 2}
-                    {:row 0, :col 1})}
-                  {:cell/row-col-pair {:row 1, :col 2},
+                   :cell/row 1,
+                   :cell/cellSheet :A2-Employees,
+                   :cell/col 0
+                    },
+                  {:cell/row-col-pair {:row 4, :col 2},
                    :cell/version :v1,
-                   :cell/ref "C2",
-                   :eav/eid 68,
-                   :cell/type "NUMERIC",
-                   :cell/value 2500,
-                   :cell/sheet "Decision_Table",
-                   :cell/matchValue 2500,
+                   :cell/ref "C5",
+                   :eav/eid 59,
+                   :cell/matchValue "salary > 75000",
+                   :cell/sheetVersion :Rules-:v1,
+                   :cell/type "STRING",
+                   :cell/value "new_hire_bonus = 1000",
+                   :cell/sheet "Rules",
                    :cell/match? false,
-                   :cell/row 1,
+                   :cell/row 4,
+                   :cell/cellSheet :C5-Rules,
                    :cell/col 2,
-                   :cell/neighbor
-                   ({:row 2, :col 2}
-                    {:row 2, :col 3}
-                    {:row 1, :col 1}
-                    {:row 1, :col 3}
-                    {:row 0, :col 3}
-                    {:row 0, :col 2}
-                    {:row 2, :col 1}
-                    {:row 0, :col 1})}
-                  {:cell/row-col-pair {:row 1, :col 3},
+                  },
+                  {:cell/row-col-pair {:row 3, :col 1},
                    :cell/version :v1,
-                   :cell/ref "D2",
-                   :eav/eid 69,
-                   :cell/type "STRING",
-                   :cell/value "Junior Tech",
-                   :cell/sheet "Decision_Table",
-                   :cell/matchValue "Junior Tech",
+                   :cell/ref "B4",
+                   :eav/eid 20,
+                   :cell/matchValue 29,
+                   :cell/sheetVersion :Employees-:v1,
+                   :cell/type "NUMERIC",
+                   :cell/value 29,
+                   :cell/sheet "Employees",
                    :cell/match? true,
-                   :cell/row 1,
-                   :cell/col 3,
-                   :cell/neighbor
-                   ({:row 2, :col 2}
-                    {:row 2, :col 3}
-                    {:row 1, :col 4}
-                    {:row 0, :col 3}
-                    {:row 2, :col 4}
-                    {:row 0, :col 2}
-                    {:row 0, :col 4}
-                    {:row 1, :col 2})}))
+                   :cell/row 15,
+                   :cell/cellSheet :B4-Employees,
+                   :cell/col 1,
+                   }
+                 )
+  )
+
+;; get the max :cell/row and :cell/col from the testdata
+(defn run-diff-test! [testdata]
+  (let [max-row (apply max (map :cell/row testdata))
+        max-col (apply max (map :cell/col testdata))]
+    (println "Max row:" max-row)
+    (println "Max col:" max-col)))
+
+(def t {:cell/row-col-pair {:row 2, :col 1},
+        :cell/version :v1,
+        :cell/ref "B3",
+        :eav/eid 14,
+        :cell/matchValue 32,
+        :cell/sheetVersion :Employees-:v1,
+        :cell/type "NUMERIC",
+        :cell/value 32,
+        :cell/sheet "Employees",
+        :cell/match? true,
+        :cell/row 2,
+        :cell/cellSheet :B3-Employees,
+        :cell/col 10,
+        :cell/neighbor
+        '({:row 2, :col 2}
+         {:row 1, :col 0}
+         {:row 1, :col 1}
+         {:row 3, :col 0}
+         {:row 2, :col 0}
+         {:row 3, :col 1}
+         {:row 1, :col 2}
+         {:row 3, :col 2})} )
+
+(def m {:username "sally"
+        :profile {:name "Sally Clojurian"
+                  :address {:city "Austin" :state "TX"}}})
+
+(get-in t [:cell/ref ])
+
+
+(map #(println %) testdata2)
+
+(map :cell/type testdata)
+(run-diff-test! testdata2)
+
+  ;; extract :eav/eid into a new sequence from testdata eager 
+  (def test-eids-eager (into [] (map :eav/eid testdata)))
+  (def test-eids (map :eav/eid testdata))
 
   ;; count the number of records with :match? falsae
   (count (filter #(= (:cell/match? %) false) testdata))
@@ -631,6 +714,6 @@
   ;;   (println "Filtered cells with neighbors not matching:" (count filtered-cells)))
 
 
-  :rtf
-  )
+  :rtf)
+  
   
