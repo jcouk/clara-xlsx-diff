@@ -11,7 +11,10 @@
     "build:lib": "npx shadow-cljs release lib",
     "build:demo": "npx shadow-cljs release demo",
     "build:browser": "npx shadow-cljs compile browser",
-    "build:clara-rules": "lein cljsbuild once test",
+    
+    "build:clara-rules": "lein cljsbuild once main", 
+
+
     "build:all": "npm run build:lib && npm run build:clara-rules",
     "watch:lib": "npx shadow-cljs watch lib",
     "dev": "npx shadow-cljs watch dev",
@@ -25,13 +28,16 @@
     "test:all": "npm run test:clj && npm run test:clara-rules && npm run test:cljs",
     "serve": "npx shadow-cljs watch dev",
     "repl": "npx shadow-cljs cljs-repl lib",
-    "clean": "rm -rf dist/* target/*"
+    "clean": "rm -rf dist/* target/*",
+    "deploy": "cp types.d.ts /mnt/c/project/xlsx-compare-extension/lib/clara-xlsx-diff/ && cp example-usage.ts /mnt/c/project/xlsx-compare-extension/lib/clara-xlsx-diff/ && cp utils.ts /mnt/c/project/xlsx-compare-extension/lib/clara-xlsx-diff/ && cp target/main.js /mnt/c/project/xlsx-compare-extension/lib/clara-xlsx-diff/ && cp -r target/cljsbuild-compiler-1 /mnt/c/project/xlsx-compare-extension/lib/clara-xlsx-diff/"
   },
   "dependencies": {
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "shadow-cljs": "^2.28.23"
+    "@types/node": "^24.0.13",
+    "shadow-cljs": "^2.28.23",
+    "typescript": "^5.8.3"
   },
   "keywords": [
     "xlsx",
