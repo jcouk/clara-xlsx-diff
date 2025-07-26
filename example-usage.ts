@@ -1,5 +1,5 @@
 // Example usage of clara-xlsx-diff with TypeScript
-
+// npx tsc example-usage.ts && node example-usage.js
 import { 
   ClaraXlsxDiff, 
   ComparisonResult, 
@@ -60,10 +60,18 @@ async function compareExcelFiles(file1Path: string, file2Path: string): Promise<
     
     // Type-safe result handling
     if (isSuccessfulComparison(result)) {
-      console.log('✅ Comparison successful!');
+      console.log('✅ Comparison successful!', result.summary);
       
       // Access summary with full type safety
       const { summary, cells } = result;
+      
+      // Debug: Check what we actually received
+      console.log('🔍 Debug - Summary type:', typeof summary);
+      console.log('🔍 Debug - Summary is array:', Array.isArray(summary));
+      console.log('🔍 Debug - Summary keys:', Object.keys(summary));
+      console.log('🔍 Debug - Summary sample:', JSON.stringify(summary).substring(0, 200) + '...');
+      console.log('🔍 Debug - Cells sample:', JSON.stringify(cells.slice(0, 2), null, 2));
+      console.log('🔍 Debug - Cells count:', cells.length);
       
       // Generate traditional summary statistics from Clara-EAV data
       const stats = summarizeChanges(summary, cells);
@@ -88,7 +96,9 @@ async function compareExcelFiles(file1Path: string, file2Path: string): Promise<
       `);
       
       // Get distinct sheets from summary
-      const sheetSet = new Set(summary.map(s => s.sheet));
+      // the summary results will return an object, each key will be a sheet name
+      console.log(`\n📄 Distinct sheets: ${Object.keys(summary).length}`);
+      const sheetSet = new Set(Object.keys(summary));
       const distinctSheets = Array.from(sheetSet);
       
       console.log('\n📋 Changes by sheet:');
@@ -143,8 +153,11 @@ async function compareExcelFiles(file1Path: string, file2Path: string): Promise<
       
       // Show Clara-EAV summary records
       console.log('\n📊 Clara-EAV Summary Records:');
-      summary.forEach((summaryRecord: SummaryRecord) => {
-        console.log(`  ${summaryRecord.sheet} (${summaryRecord.version}): ${summaryRecord.count} ${summaryRecord.changeType} changes`);
+      Object.entries(summary).forEach(([sheetName, sheetData]) => {
+        console.log(`  📄 ${sheetName}:`);
+        console.log(`    Dimensions: ${sheetData.maxCol + 1} cols × ${sheetData.maxRow + 1} rows`);
+        console.log(`    v1 Results: ${JSON.stringify(sheetData.v1Results)}`);
+        console.log(`    v2 Results: ${JSON.stringify(sheetData.v2Results)}`);
       });
       
       // Detailed analysis of significant changes

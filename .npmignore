@@ -1,0 +1,62 @@
+# Source files - only include compiled output
+src/
+test/
+*.clj
+*.cljs
+*.cljc
+
+# Development files
+.shadow-cljs/
+.nrepl-port
+.calva/
+.clj-kondo/
+.lsp/
+
+# Build artifacts (except essential runtime files)
+dist/
+target/*
+!target/main.js
+!target/cljsbuild-compiler-1/
+# Exclude large unnecessary files from runtime
+target/cljsbuild-compiler-1/**/*.cache.json
+target/cljsbuild-compiler-1/**/*.js.map
+target/cljsbuild-compiler-1/**/*.cljs
+target/cljsbuild-compiler-1/**/*.cljc
+
+# Development and testing
+example.js
+debug.js
+demo.js
+test-*.js
+create-*.js
+analyze-*.js
+production-example.js
+*.xlsx
+
+# Configuration
+shadow-cljs.edn
+deps.edn
+project.clj
+build.sh
+setup.sh
+
+# Documentation
+DEVELOPMENT.md
+CONSISTENCY_REPORT.clj
+docs/
+prompts/
+
+# IDE and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -1,6 +1,146 @@
 # Clara XLSX Diff
 
-A Clojure/ClojureScript library for comparing XLSX files using Entity-Attribute-Value (EAV) models and Clara Rules engine for intelligent difference detection.
+A TypeScript/JavaScript library for comparing XLSX files using Entity-Attribute-Value (EAV) models and Clara Rules engine for intelligent difference detection.
+
+[![npm version](https://badge.fury.io/js/clara-xlsx-diff.svg)](https://badge.fury.io/js/clara-xlsx-diff)
+[![License: EPL-2.0](https://img.shields.io/badge/License-EPL%202.0-red.svg)](https://opensource.org/licenses/EPL-2.0)
+
+**✨ Features:**
+- 📦 **Optimized Bundle**: Self-contained 2.9MB package with simple optimizations
+- 🚀 **Zero Runtime Dependencies**: No Google Closure Library files required
+- 💾 **Small Package Size**: 338.9 kB compressed download
+- 🔷 **Full TypeScript Support**: Complete type definitions and utilities
+
+## Installation
+
+```bash
+npm install clara-xlsx-diff
+```
+
+> **Note:** This package is designed for Node.js environments (≥14.0.0). For browser usage, you'll need a bundler that can handle Node.js modules.
+
+## Quick Start
+
+```typescript
+import { compareXlsxBuffers, init } from 'clara-xlsx-diff';
+import * as fs from 'fs';
+
+// Initialize the library
+const info = init();
+console.log(info); // { version: '0.1.2', description: '...' }
+
+// Compare two Excel files
+const file1Buffer = fs.readFileSync('file1.xlsx');
+const file2Buffer = fs.readFileSync('file2.xlsx');
+
+const result = compareXlsxBuffers(file1Buffer, file2Buffer, 'file1.xlsx', 'file2.xlsx');
+
+if (result.success) {
+  console.log(`Found ${result.cells.length} cell records`);
+  console.log(`Summary:`, result.summary);
+} else {
+  console.error('Comparison failed:', result.error);
+}
+```
+
+## TypeScript Import Patterns
+
+### 1. Main Package Imports (Recommended)
+
+```typescript
+import { 
+  // Core functions
+  compareXlsxBuffers, 
+  init,
+  
+  // Utility functions
+  filterChangesByType,
+  groupChangesBySheet,
+  getSummaryCount,
+  summarizeChanges,
+  
+  // Types
+  ComparisonResult,
+  ChangeRecord,
+  ChangeType,
+  SummaryRecord
+} from 'clara-xlsx-diff';
+```
+
+### 2. Specific File Imports
+
+```typescript
+// Import only types
+import type { ChangeRecord, SummaryRecord, ChangeType } from 'clara-xlsx-diff/types';
+
+// Import specific utilities
+import { isSuccessfulComparison, getChangeStatistics } from 'clara-xlsx-diff/utils';
+
+// Import example functions
+import { compareExcelFiles } from 'clara-xlsx-diff/example-usage';
+```
+
+### 3. Namespace Imports
+
+```typescript
+// Import everything under a namespace
+import * as ClaraXlsx from 'clara-xlsx-diff';
+
+const result = ClaraXlsx.compareXlsxBuffers(buffer1, buffer2);
+const changes = ClaraXlsx.filterChangesByType(result.cells, "New");
+```
+
+### 4. CommonJS (Node.js without TypeScript)
+
+```javascript
+// CommonJS import
+const { compareXlsxBuffers, filterChangesByType } = require('clara-xlsx-diff');
+
+// Or import everything
+const ClaraXlsx = require('clara-xlsx-diff');
+```
+
+## API Reference
+
+### Core Functions
+
+#### `compareXlsxBuffers(file1Buffer, file2Buffer, file1Name?, file2Name?)`
+Compare two XLSX files from buffers.
+
+- **Parameters:**
+  - `file1Buffer`: Buffer | Uint8Array - First file buffer
+  - `file2Buffer`: Buffer | Uint8Array - Second file buffer  
+  - `file1Name`: string (optional) - Label for first file
+  - `file2Name`: string (optional) - Label for second file
+- **Returns:** `ComparisonResult` - Success/failure with comparison data
+
+#### `init()`
+Initialize the Clara XLSX library.
+
+- **Returns:** `{ version: string, description: string }`
+
+### Utility Functions
+
+The package also exports utility functions for working with comparison results:
+
+```typescript
+import { 
+  filterChangesByType, 
+  groupChangesBySheet, 
+  getSummaryCount,
+  summarizeChanges 
+} from 'clara-xlsx-diff';
+
+// Filter changes by type
+const newCells = filterChangesByType(result.cells, "New");
+const changedCells = filterChangesByType(result.cells, "Change");
+
+// Group changes by sheet
+const bySheet = groupChangesBySheet(result.cells);
+
+// Get summary statistics
+const stats = summarizeChanges(result.summary, result.cells);
+```
 
 ## Overview
 

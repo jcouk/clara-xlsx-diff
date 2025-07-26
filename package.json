@@ -1,21 +1,33 @@
 {
   "name": "clara-xlsx-diff",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "XLSX comparison tool using Clara Rules and EAV triples",
-  "main": "dist/clara-xlsx-diff.js",
-  "bin": {
-    "clara-xlsx-diff": "dist/clara-xlsx-diff-exe.js"
-  },
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "target/main-simple.js",
+    "types.d.ts",
+    "utils.ts",
+    "utils.js",
+    "example-usage.ts",
+    "example-usage.js",
+    "README.md"
+  ],
+  "bin": {},
   "scripts": {
-    "build": "./build.sh",
+    "build": "npm run build:clara-simple && npm run build:ts",
+    "build:ts": "npx tsc utils.ts example-usage.ts",
     "build:lib": "npx shadow-cljs release lib",
     "build:demo": "npx shadow-cljs release demo",
     "build:browser": "npx shadow-cljs compile browser",
-    
-    "build:clara-rules": "lein cljsbuild once main", 
-
-
-    "build:all": "npm run build:lib && npm run build:clara-rules",
+    "build:clara-rules": "lein cljsbuild once main",
+    "build:clara-simple": "lein cljsbuild once simple",
+    "build:all": "npm run build:lib && npm run build:clara-simple",
+    "prepublishOnly": "npm run build",
+    "version": "npm run build",
+    "postversion": "git push && git push --tags",
     "watch:lib": "npx shadow-cljs watch lib",
     "dev": "npx shadow-cljs watch dev",
     "dev:browser": "npx shadow-cljs watch browser",
@@ -28,8 +40,10 @@
     "test:all": "npm run test:clj && npm run test:clara-rules && npm run test:cljs",
     "serve": "npx shadow-cljs watch dev",
     "repl": "npx shadow-cljs cljs-repl lib",
-    "clean": "rm -rf dist/* target/*",
-    "deploy": "cp types.d.ts /mnt/c/project/xlsx-compare-extension/lib/clara-xlsx-diff/ && cp example-usage.ts /mnt/c/project/xlsx-compare-extension/lib/clara-xlsx-diff/ && cp utils.ts /mnt/c/project/xlsx-compare-extension/lib/clara-xlsx-diff/ && cp target/main.js /mnt/c/project/xlsx-compare-extension/lib/clara-xlsx-diff/ && cp -r target/cljsbuild-compiler-1 /mnt/c/project/xlsx-compare-extension/lib/clara-xlsx-diff/"
+    "clean": "rm -rf dist/* target/*"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   },
   "dependencies": {
     "xlsx": "^0.18.5"
@@ -47,10 +61,14 @@
     "clara-rules",
     "clojure"
   ],
-  "author": "Your Name",
+  "author": "Your Name <your.email@example.com>",
   "license": "EPL-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/clara-xlsx-diff.git"
+    "url": "https://github.com/jcouk/clara-xlsx-diff.git"
+  },
+  "homepage": "https://github.com/jcouk/clara-xlsx-diff#readme",
+  "bugs": {
+    "url": "https://github.com/jcouk/clara-xlsx-diff/issues"
   }
 }
