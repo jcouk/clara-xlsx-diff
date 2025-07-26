@@ -21,7 +21,6 @@
 ;; Simple rule to find cells that have matching values between v1 and v2 versions  
 (er/defrule match?-cell-comparison
   "Find cells where v1 and v2 have the same value in the same sheet/position"
-  {:salience 1}
   [[?e1 :cell/version :v1]]
   [[?e1 :cell/sheet ?sheet]]
   [[?e1 :cell/ref ?cell-ref]]
@@ -34,8 +33,8 @@
   (let [matching? (= ?value1 ?value2)
         cell-sheet (keyword (str ?cell-ref "-" ?sheet))
         sheet-version-v1 (keyword (str ?sheet "-" :v1))
-        sheet-version-v2 (keyword (str ?sheet "-" :v2))
-        ]
+        sheet-version-v2 (keyword (str ?sheet "-" :v2))]
+        
     (er/upsert-unconditional! [[?e1 :cell/match? matching?]
                                [?e1 :cell/matchValue ?value2]
                                [?e1 :cell/cellSheet cell-sheet]
@@ -43,36 +42,35 @@
                                [?e2 :cell/match? matching?]
                                [?e2 :cell/matchValue ?value1]
                                [?e2 :cell/cellSheet cell-sheet]
-                               [?e2 :cell/sheetVersion sheet-version-v2]
-                               ])))
+                               [?e2 :cell/sheetVersion sheet-version-v2]])))
+                               
 
 
-(er/defrule !sheet-version-eid 
+(er/defrule !sheet-version-eids 
   ;; [[?e1 :cell/sheetVersion ?sheetVersion]]
   [?rowEids <- er/entities :from [:eav/all 
                                   ;; (= (:e this) ?e1)
                                   (= (:a this) :cell/sheet)
                                   (= (:v this)  ?sheet)]]
   =>(let [extractedEid (mapv :eav/eid ?rowEids)]
-  (er/upsert! [(keyword ?sheet) :sheetInfo/Eids extractedEid])))
+     (er/upsert! [(keyword ?sheet) :sheetInfo/Eids extractedEid])))
 
 
 (er/defrule !sheet-version-max-row
   [[?e1 :sheetInfo/Eids ?sheetInfoEids]]
   [?sheetInfoEntities <- er/entities :from [:eav/all
                                             (some #(= (:e this) %) ?sheetInfoEids)]]
-   =>(let [maxRow (apply max (mapv #(get-in % [:cell/row]) ?sheetInfoEntities))
-           maxCol (apply max (mapv #(get-in % [:cell/col]) ?sheetInfoEntities))
-           ]
-      (er/upsert! [
-                   [?e1 :sheetInfo/maxRow maxRow]
-                   [?e1 :sheetInfo/maxCol maxCol]])))
+  =>(let [maxRow (apply max (mapv #(get-in % [:cell/row]) ?sheetInfoEntities))
+          maxCol (apply max (mapv #(get-in % [:cell/col]) ?sheetInfoEntities))]
+           
+     (er/upsert! [
+                  [?e1 :sheetInfo/maxRow maxRow]
+                  [?e1 :sheetInfo/maxCol maxCol]])))
 
 
 ;; if the cell isn't matching, see if there is a cell on the other sheet and other version which does match
 (er/defrule !cellMatch-find-match-if-possible
   "Go look for a match for itself in the case that it was just moved"
-  {:salience 100}
   [[?e1 :cell/version :v1]]
   [[?e1 :cell/match? false]]
   [[?e1 :cell/sheet ?sheet]]
@@ -95,7 +93,6 @@
 
 (er/defrule RowColPair-transform-row-col-pair
   "Transform row and column into a pair for easier neighbor calculations" 
-  {:salience 200}
   [[?e1 :cell/row ?row]]
   [[?e1 :cell/col ?col]]
   =>
@@ -223,68 +220,56 @@
 
 
 
-(er/defrule generate-cell-output-for-new-value 
-  "for each cell in v1 where v1 is the latest and v2 is the new file, output a cell for each diff" 
-  {:salience -100}
+(er/defrule generate-cell-output-for-new-value
+  "for each cell in v1 where v1 is the latest and v2 is the new file, output a cell for each diff"
   [[?e1 :cell/version :v1]]
-  [[?e1 :cell/match? false]]
   [[?e1 :cell/sheet ?sheet]]
-  [[?e1 :cell/value ?newValue]]
-  [[?e1 :cell/matchValue ?matchValue]] 
-  [[?e1 :cell/cellSheet ?cellSheet]]
+  [[?e1 :cell/value ?value]]
   [[?e1 :cell/col ?col]]
   [[?e1 :cell/row ?row]]
   [[?e1 :cell/ref ?ref]]
   ;; [:not [[?celMatchEdi :cellMatch/v1Eid ?e1]]] 
   [:not [:eav/all
-         (= (:e this) ?cellSheet)
-         (= (:a this) :cellMatch/v1Eid)
-         (= (:v this) ?e1)]]
+         (= (:e this) ?e1)
+         (= (:a this) :cell/match?)]]
   =>
   (let [sheetAndVersionIdentif (str ?ref "-" ?sheet "-" :v1 "-New")]
     (er/upsert! [[(keyword sheetAndVersionIdentif) :output/col ?col]
                  [(keyword sheetAndVersionIdentif) :output/row ?row]
                  [(keyword sheetAndVersionIdentif) :output/sheet ?sheet]
                  [(keyword sheetAndVersionIdentif) :output/ref ?ref]
-                 [(keyword sheetAndVersionIdentif) :output/value ?newValue]
-                 [(keyword sheetAndVersionIdentif) :output/matchValue ?matchValue]
+                 [(keyword sheetAndVersionIdentif) :output/value ?value]
+                 [(keyword sheetAndVersionIdentif) :output/matchValue "N/A"]
                  [(keyword sheetAndVersionIdentif) :output/changeType "New"]
                  [(keyword sheetAndVersionIdentif) :output/version :v1]])))
 
 
 (er/defrule generate-cell-output-for-deleted-value
   "for each cell in v1 where v1 is the latest and v2 is the new file, output a cell for each diff"
-  {:salience -100}
-  [[?e1 :cell/version :v2]]
-  [[?e1 :cell/match? false]]
+  [[?e1 :cell/version :v2]] 
   [[?e1 :cell/sheet ?sheet]]
-  [[?e1 :cell/value ?newValue]]
-  [[?e1 :cell/matchValue ?matchValue]]
-  [[?e1 :cell/cellSheet ?cellSheet]]
+  [[?e1 :cell/value ?value]] 
+  [:not [:eav/all
+         (= (:e this) ?e1)
+         (= (:a this) :cell/match?)]]
   [[?e1 :cell/col ?col]]
   [[?e1 :cell/row ?row]]
   [[?e1 :cell/ref ?ref]]
-  ;; [:not  [[?cellSheet :cellMatch/v2Eid]]]
-  [:not [:eav/all
-         (= (:e this) ?cellSheet)
-         (= (:a this) :cellMatch/v2Eid) 
-         (= (:v this) ?e1)]]
   =>
   (let [sheetAndVersionIdentif (str ?ref "-" ?sheet "-" :v2 "-Deleted")]
     (er/upsert! [[(keyword sheetAndVersionIdentif) :output/col ?col]
                  [(keyword sheetAndVersionIdentif) :output/row ?row]
                  [(keyword sheetAndVersionIdentif) :output/sheet ?sheet]
                  [(keyword sheetAndVersionIdentif) :output/ref ?ref]
-                 [(keyword sheetAndVersionIdentif) :output/value ?newValue]
-                 [(keyword sheetAndVersionIdentif) :output/matchValue ?matchValue]
+                 [(keyword sheetAndVersionIdentif) :output/value ?value]
+                 [(keyword sheetAndVersionIdentif) :output/matchValue "N/A"]
                  [(keyword sheetAndVersionIdentif) :output/changeType "Deleted"]
                  [(keyword sheetAndVersionIdentif) :output/version :v2]])))
 
 
-(er/defrule generate-cell-output-for-change-value_v1
+(er/defrule generate-cell-output-for-change-value
   "for each cell in v1 where v1 is the latest and v2 is the new file, output a cell for each diff"
-  {:salience -200}
-  [[?e1 :cell/version :v1]]
+  [[?e1 :cell/version ?version]]
   [[?e1 :cell/match? false]]
   [[?e1 :cell/sheet ?sheet]]
   [[?e1 :cell/value ?newValue]]
@@ -293,9 +278,8 @@
   [[?e1 :cell/col ?col]]
   [[?e1 :cell/row ?row]]
   [[?e1 :cell/ref ?ref]]
-  [[?cellSheet :cellMatch/v1Eid ?e1]]
   =>
-  (let [sheetAndVersionIdentif (str ?ref "-" ?sheet "-" :v1 "-Changed")]
+  (let [sheetAndVersionIdentif (str ?ref "-" ?sheet "-" ?version "-Changed")]
     (er/upsert! [[(keyword sheetAndVersionIdentif) :output/col ?col]
                  [(keyword sheetAndVersionIdentif) :output/row ?row]
                  [(keyword sheetAndVersionIdentif) :output/sheet ?sheet]
@@ -303,37 +287,36 @@
                  [(keyword sheetAndVersionIdentif) :output/value ?newValue]
                  [(keyword sheetAndVersionIdentif) :output/matchValue ?matchValue]
                  [(keyword sheetAndVersionIdentif) :output/changeType "Change"]
-                 [(keyword sheetAndVersionIdentif) :output/version :v1]])))
+                 [(keyword sheetAndVersionIdentif) :output/version ?version]])))
 
 
-(er/defrule generate-cell-output-for-change-value_v2
-  "for each cell in v1 where v1 is the latest and v2 is the new file, output a cell for each diff"
-  {:salience -200}
-  [[?e1 :cell/version :v2]]
-  [[?e1 :cell/match? false]]
-  [[?e1 :cell/sheet ?sheet]]
-  [[?e1 :cell/value ?newValue]]
-  [[?e1 :cell/matchValue ?matchValue]]
-  [[?e1 :cell/cellSheet ?cellSheet]]
-  [[?e1 :cell/col ?col]]
-  [[?e1 :cell/row ?row]]
-  [[?e1 :cell/ref ?ref]]
-  [[?cellSheet :cellMatch/v2Eid ?e1]]
-  =>
-  (let [sheetAndVersionIdentif (str ?ref "-" ?sheet "-" :v2 "-Changed")]
-    (er/upsert! [[(keyword sheetAndVersionIdentif) :output/col ?col]
-                 [(keyword sheetAndVersionIdentif) :output/row ?row]
-                 [(keyword sheetAndVersionIdentif) :output/sheet ?sheet]
-                 [(keyword sheetAndVersionIdentif) :output/ref ?ref]
-                 [(keyword sheetAndVersionIdentif) :output/value ?newValue]
-                 [(keyword sheetAndVersionIdentif) :output/matchValue ?matchValue]
-                 [(keyword sheetAndVersionIdentif) :output/changeType "Change"]
-                 [(keyword sheetAndVersionIdentif) :output/version :v2]])))
+;; (er/defrule generate-cell-output-for-change-value_v2
+;;   "for each cell in v1 where v1 is the latest and v2 is the new file, output a cell for each diff"
+;;   {:salience -200}
+;;   [[?e1 :cell/version :v2]]
+;;   [[?e1 :cell/match? false]]
+;;   [[?e1 :cell/sheet ?sheet]]
+;;   [[?e1 :cell/value ?newValue]]
+;;   [[?e1 :cell/matchValue ?matchValue]]
+;;   [[?e1 :cell/cellSheet ?cellSheet]]
+;;   [[?e1 :cell/col ?col]]
+;;   [[?e1 :cell/row ?row]]
+;;   [[?e1 :cell/ref ?ref]]
+;;   [[?cellSheet :cellMatch/v2Eid ?e1]]
+;;   =>
+;;   (let [sheetAndVersionIdentif (str ?ref "-" ?sheet "-" :v2 "-Changed")]
+;;     (er/upsert! [[(keyword sheetAndVersionIdentif) :output/col ?col]
+;;                  [(keyword sheetAndVersionIdentif) :output/row ?row]
+;;                  [(keyword sheetAndVersionIdentif) :output/sheet ?sheet]
+;;                  [(keyword sheetAndVersionIdentif) :output/ref ?ref]
+;;                  [(keyword sheetAndVersionIdentif) :output/value ?newValue]
+;;                  [(keyword sheetAndVersionIdentif) :output/matchValue ?matchValue]
+;;                  [(keyword sheetAndVersionIdentif) :output/changeType "Change"]
+;;                  [(keyword sheetAndVersionIdentif) :output/version :v2]])))
 
 
 (er/defrule generate-the-remaining-cell-output
   "generate an output for all the unchanged cells"
-  {:salience -200}
   [[?e1 :cell/version ?version]]
   [[?e1 :cell/match? true]]
   [[?e1 :cell/sheet ?sheet]]
@@ -354,6 +337,39 @@
                  [(keyword sheetAndVersionIdentif) :output/version ?version]])))
 
 
+
+
+
+(er/defrule !sheet-version-output-eids
+  ;; [[?e1 :cell/sheetVersion ?sheetVersion]]
+  [?rowEids <- er/entities :from [:eav/all
+                                  ;; (= (:e this) ?e1)
+                                  (= (:a this) :output/sheet)
+                                  (= (:v this)  ?sheet)]]
+  => (let [extractedEid (mapv :eav/eid ?rowEids)]
+       (er/upsert! [(keyword ?sheet) :sheetInfo/outputEids extractedEid])))
+
+
+
+(er/defrule !sheet-version-output-counts
+  [[?e1 :sheetInfo/outputEids ?sheetInfoEids]]
+  [?sheetInfoEntities <- er/entities :from [:eav/all
+                                            (some #(= (:e this) %) ?sheetInfoEids)]]
+  => (let [None-Change-Type_v1 (count (filter #(and (= (:output/changeType %) "None") (= (:output/version %) :v1)) ?sheetInfoEntities))
+           Change-Change-Type_v1 (count (filter #(and (= (:output/changeType %) "Change") (= (:output/version %) :v1)) ?sheetInfoEntities))
+           New-Change-Type_v1 (count (filter #(and (= (:output/changeType %) "New") (= (:output/version %) :v1)) ?sheetInfoEntities))
+           Deleted-Change-Type_v2 (count (filter #(and (= (:output/changeType %) "Deleted") (= (:output/version %) :v2)) ?sheetInfoEntities))
+           Change-Change-Type_v2 (count (filter #(and (= (:output/changeType %) "Change") (= (:output/version %) :v2)) ?sheetInfoEntities))
+           None-Change-Type_v2 (count (filter #(and (= (:output/changeType %) "None") (= (:output/version %) :v2)) ?sheetInfoEntities))
+           v1-results-object {:None None-Change-Type_v1 
+                              :Change Change-Change-Type_v1
+                              :New New-Change-Type_v1}
+           v2-results-object {:None None-Change-Type_v2
+                              :Change Change-Change-Type_v2
+                              :Deleted Deleted-Change-Type_v2}]
+
+       (er/upsert! [[?e1 :sheetInfo/v1Results v1-results-object]
+                    [?e1 :sheetInfo/v2Results v2-results-object]])))
 
 ;; Learned that if you can identify a keyword- the best thing to do is to use the keyword as the entity id
 ;; i think the truth value logic works really hard otherwise if the entity being created is the same record you're checking
@@ -416,21 +432,6 @@
 ;;                  [(keyword sheet-version-identif) :sheetData/maxRow ?maxRow]])))
 
 
-
-
-(er/defquery get-all-outputs
-  "Get all output cells generated by the rules"
-  []
-  [[?e :output/changeType]]
-  [?output <- er/entities :from [[?e]]])
-
-
-(er/defquery get-all-summary-results
-  "get all the sheets and count the number of Changes, New, and Deleted items"
-  []
-  [[?e :summary/sheet]]
-  [?output <- er/entities :from [[?e]]])
-
 (comment
   ;; let [{:keys [eav-v1 eav-v2]} (process-to-eav)
   (def eav-v1 (eav/xlsx->eav (xlsx/extract-data "test/sample_data.xlsx") :version :v1))
@@ -465,6 +466,37 @@
   (def query-results  (rules/query results get-all-outputs))
 
 
+  (def test-summary (->> (get-in results [:store :eav-index])
+                         (filter (fn [[_entity-id data]]
+                                   (and (map? data)
+                                        (some #(= "sheetInfo" (namespace %)) (keys data)))))
+                         (into [])
+                        ;;  return a a single object with {:key {:maxCol, :maxRow, :v1Results, :v2Results}}
+                          (map (fn [[_entity-id data]] ;; _entity-id should be the parent key
+                                  (let [v1-results (get data :sheetInfo/v1Results)
+                                        v2-results (get data :sheetInfo/v2Results)]
+                                    {:sheetName (name _entity-id)
+                                      :maxCol (get data :sheetInfo/maxCol)
+                                      :maxRow (get data :sheetInfo/maxRow)
+                                      :v1Results v1-results
+                                      :v2Results v2-results})))
+                         
+                        ;;  put all the results together in a map
+                          (into {} (map (fn [m] [(keyword (:sheetName m)) m])))
+                         )  ; convert sheetName to keyword for easier access
+                         )
+  
+                         
+    ;; remove any keys with "Eids" in them
+                        ;;  (map (fn [m]
+                        ;;         (into {} (remove (fn [[k _]] (clojure.string/includes? (name k) "Eids")) m))))
+                        ;;  (map (fn [m]
+                        ;;         (update m :sheetInfo/v1Results #(dissoc % :values)))
+                        ;;  )
+
+
+  (tap> test-summary)
+
   (tap> (map (fn [{:keys [?output]}]
                (first ?output))  ; output is a sequence, so take the first (and only) item
              query-results))
@@ -497,20 +529,6 @@
 
 
 
-
-  ;; example output
-  ;; {:output/row 5,
-  ;;  :output/sheetAndVersionIdentif "Employees-:v2-Unchanged",
-  ;;  :output/ref "E6",
-  ;;  :output/sheet "Employees",
-  ;;  :output/value "Active",
-  ;;  :output/col 4,
-  ;;  :output/changeType "None",
-  ;;  :output/matchValue "Active",
-  ;;  :output/version :v2}
-  ;; group by sheet
-
-
   (def grouped-by-sheet (group-by :output/sheet cell-records))
 
   ;; add to group-by-sheet meta-data including 
@@ -531,21 +549,6 @@
        :highest-row highest-row}))
 
 
-  (def grouped-by-sheet-with-meta
-    (into {}
-          (map (fn [[sheet-name records]]
-                 [sheet-name (add-sheet-meta-data records)]))
-          grouped-by-sheet))
-
-
-
-
-
-  (tap> cell-records)
-  (tap> grouped-by-sheet)
-  (tap> grouped-by-sheet-with-meta)
-
-
 
 
 
@@ -554,165 +557,7 @@
 
 
 
-
-
-  (def testdata2 '({:cell/row-col-pair {:row 1, :col 0},
-                   :cell/version :v1,
-                   :cell/ref "A2",
-                   :eav/eid 7,
-                   :cell/matchValue "Alice Johnson",
-                   :cell/sheetVersion :Employees-:v1,
-                   :cell/type "STRING",
-                   :cell/value "Alice Johnson",
-                   :cell/sheet "Employees",
-                   :cell/match? true,
-                   :cell/row 1,
-                   :cell/cellSheet :A2-Employees,
-                   :cell/col 0
-                    },
-                  {:cell/row-col-pair {:row 4, :col 2},
-                   :cell/version :v1,
-                   :cell/ref "C5",
-                   :eav/eid 59,
-                   :cell/matchValue "salary > 75000",
-                   :cell/sheetVersion :Rules-:v1,
-                   :cell/type "STRING",
-                   :cell/value "new_hire_bonus = 1000",
-                   :cell/sheet "Rules",
-                   :cell/match? false,
-                   :cell/row 4,
-                   :cell/cellSheet :C5-Rules,
-                   :cell/col 2,
-                  },
-                  {:cell/row-col-pair {:row 3, :col 1},
-                   :cell/version :v1,
-                   :cell/ref "B4",
-                   :eav/eid 20,
-                   :cell/matchValue 29,
-                   :cell/sheetVersion :Employees-:v1,
-                   :cell/type "NUMERIC",
-                   :cell/value 29,
-                   :cell/sheet "Employees",
-                   :cell/match? true,
-                   :cell/row 15,
-                   :cell/cellSheet :B4-Employees,
-                   :cell/col 1,
-                   }
-                 )
+  :rtf
   )
-
-;; get the max :cell/row and :cell/col from the testdata
-(defn run-diff-test! [testdata]
-  (let [max-row (apply max (map :cell/row testdata))
-        max-col (apply max (map :cell/col testdata))]
-    (println "Max row:" max-row)
-    (println "Max col:" max-col)))
-
-(def t {:cell/row-col-pair {:row 2, :col 1},
-        :cell/version :v1,
-        :cell/ref "B3",
-        :eav/eid 14,
-        :cell/matchValue 32,
-        :cell/sheetVersion :Employees-:v1,
-        :cell/type "NUMERIC",
-        :cell/value 32,
-        :cell/sheet "Employees",
-        :cell/match? true,
-        :cell/row 2,
-        :cell/cellSheet :B3-Employees,
-        :cell/col 10,
-        :cell/neighbor
-        '({:row 2, :col 2}
-         {:row 1, :col 0}
-         {:row 1, :col 1}
-         {:row 3, :col 0}
-         {:row 2, :col 0}
-         {:row 3, :col 1}
-         {:row 1, :col 2}
-         {:row 3, :col 2})} )
-
-(def m {:username "sally"
-        :profile {:name "Sally Clojurian"
-                  :address {:city "Austin" :state "TX"}}})
-
-(get-in t [:cell/ref ])
-
-
-(map #(println %) testdata2)
-
-(map :cell/type testdata)
-(run-diff-test! testdata2)
-
-  ;; extract :eav/eid into a new sequence from testdata eager 
-  (def test-eids-eager (into [] (map :eav/eid testdata)))
-  (def test-eids (map :eav/eid testdata))
-
-  ;; count the number of records with :match? falsae
-  (count (filter #(= (:cell/match? %) false) testdata))
-  (some #(= % {:row 1 :col 2}) testdata)
-
-  ;; Rich Test Fixture (RTF) - Instructions for testing clara-xlsx-diff rules
-  ;;
-  ;; These rules compare v1 and v2 versions of XLSX files and detect:
-  ;;   ✅ MATCH: cells with same values in both versions
-  ;;   🔄 CHANGED: cells with different values between versions  
-  ;;   ❌ DELETED: cells present in v1 but missing in v2
-  ;;   ➕ ADDED: cells present in v2 but missing in v1
-  ;;
-  ;; === ONE-STEP TEST FUNCTION ===
-  ;; Run this function to execute the entire test pipeline in one go
-  ;; (require '[portal.api :as p])
-  ;; (require '[clara-xlsx-diff.xlsx :as xlsx])
-  ;; (require '[clara-xlsx-diff.eav :as custom-eav])
-  ;; (require '[clara-eav.rules :as er :include-macros true])
-  ;; (require '[clara.rules :as rules :include-macros true])
-  ;; (def p (p/open))
-  ;; (add-tap #'p/submit)
-
-  ;; Now you can use the functions defined above:
-  ;; Example usage (use let bindings instead of def):
-  ;; (let [result (run-diff-analysis)]
-  ;;   (tap> (:eav-v1 result))
-  ;;   (tap> (:eav-v2 result))
-  ;;   (tap> (:session result)))
-
-
-
-  ;; (let [complete-conversion (map eav-record->vec eav-v1)] ...)
-
-
-
-  ;; Use the new functional approach instead:
-  ;; (clara-xlsx-diff.rules/run-diff-analysis)
-
-  ;; === QUICK TEST - Just run this! ===
-  ;; (def test-results (run-diff-test!))
-
-
-
-
-  (println "Cell records count:" (count cell-records))
-  (println "Sample cell records:" (take 3 cell-records))
-
-  ;; === Expected Output ===
-  ;; You should see output like:
-  ;;   ✅ MATCH: Employees A1 = Name (unchanged between v1 and v2)
-  ;;   🔄 CHANGED: Employees B2 : Alice Johnson → Alice Smith
-  ;;   ❌ DELETED: Employees C3 was 75000.0 (missing in v2)
-  ;;   ➕ ADDED: Employees D4 = New Value (new in v2)
-  ;;
-  ;; === STEP 5: Experiment with rules ===
-  ;; Try modifying the sample files and re-running to see different diff patterns.
-  ;; Add more rules for specific analysis needs (e.g., salary changes, new employees).
-
-  ;; Use let bindings instead of def for local testing:
-  ;; (let [filtered-cells
-  ;;       (filter #(and (= (:cell/version (second %)) :v1)
-  ;;                     (> (:cell/neighbors-not-matching (second %)) 0))
-  ;;               test-cells)]
-  ;;   (println "Filtered cells with neighbors not matching:" (count filtered-cells)))
-
-
-  :rtf)
   
   

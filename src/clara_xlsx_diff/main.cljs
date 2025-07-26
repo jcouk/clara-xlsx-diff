@@ -23,9 +23,24 @@
                                             (some #(= "output" (namespace %)) (keys data)))))
                              (into [])
                              (map second))
-        summary-results (map (fn [{:keys [?output]}]
-                               (first ?output))
-                             (rules/query session2 clara-xlsx-diff.rules/get-all-summary-results))]
+        summary-results (->> (get-in session2 [:store :eav-index])
+                             (filter (fn [[_entity-id data]]
+                                       (and (map? data)
+                                            (some #(= "sheetInfo" (namespace %)) (keys data)))))
+                             (into [])
+                              ;; return a single object with {:key {:maxCol, :maxRow, :v1Results, :v2Results}}
+                             (map (fn [[_entity-id data]] ;; _entity-id should be the parent key
+                                    (let [v1-results (get data :sheetInfo/v1Results)
+                                          v2-results (get data :sheetInfo/v2Results)]
+                                      {:sheetName (name _entity-id)
+                                       :maxCol (get data :sheetInfo/maxCol)
+                                       :maxRow (get data :sheetInfo/maxRow)
+                                       :v1Results v1-results
+                                       :v2Results v2-results})))
+                        
+                             ;;  put all the results together in a map
+                             (into {} (map (fn [m] [(keyword (:sheetName m)) m])))
+                             )]
     {:cells output-records
      :summary summary-results}))
 
