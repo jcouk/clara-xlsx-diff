@@ -14,7 +14,7 @@
     (str (col-letter col) (inc row))))
 
 (defn extract-sheet-data
-  "Extract all data from a single worksheet"
+  "Extract all data from a single worksheet with chunked processing"
   [worksheet sheet-name]
   (let [range (aget worksheet "!ref")]
     (if-not range
@@ -22,34 +22,41 @@
       ;; Extract all cell addresses (excluding metadata keys that start with !)
       (let [cell-addresses (js->clj (js/Object.keys worksheet))
             data-addresses (filter #(not (.startsWith % "!")) cell-addresses)
-            cells (for [cell-addr data-addresses
-                        :let [cell (aget worksheet cell-addr)]
-                        :when cell]
-                    (let [;; Extract row and column from cell address (e.g., "A1" -> row 0, col 0)
-                          row-col (js->clj (.utils.decode_cell XLSX cell-addr))
-                          row (get row-col "r")
-                          col (get row-col "c")]
-                      {:cell-ref cell-addr
-                       :row row
-                       :col col
-                       :value (cond
-                                (aget cell "v") (aget cell "v")
-                                (aget cell "w") (aget cell "w")
-                                :else nil)
-                       :type (case (aget cell "t")
-                               "s" "STRING" "n" "NUMERIC" "b" "BOOLEAN"
-                               "f" "FORMULA" "z" "BLANK" "STRING")
-                       ;; Enhanced formatting information
-                       :formatted-text (aget cell "w")           ; Formatted display text
-                       :formula (aget cell "f")                  ; Formula (if any)
-                       :style-index (aget cell "s")              ; Style index
-                       :number-format (aget cell "z")            ; Number format
-                       :hyperlink (aget cell "l")                ; Hyperlink info
-                       :comment (aget cell "c")                  ; Cell comment
-                       :html (aget cell "h")                     ; HTML representation
-                       }))]
+            chunk-size 50  ; Process 250 cells at a time
+            chunks (partition-all chunk-size data-addresses)
+            cells (atom [])]
+        
+        (println (str "📊 Processing sheet '" sheet-name "': " (count data-addresses) " cells in " (count chunks) " chunks"))
+        
+        ;; Process each chunk separately
+        (doseq [[chunk-idx chunk] (map-indexed vector chunks)]
+          (println (str "🔄 Processing chunk " (inc chunk-idx) "/" (count chunks) " (" (count chunk) " cells)"))
+          (let [chunk-cells (for [cell-addr chunk
+                                  :let [cell (aget worksheet cell-addr)]
+                                  :when cell]
+                              (let [;; Extract row and column from cell address (e.g., "A1" -> row 0, col 0)
+                                    row-col (js->clj (.utils.decode_cell XLSX cell-addr))
+                                    row (get row-col "r")
+                                    col (get row-col "c")]
+                                {:cell-ref cell-addr
+                                 :row row
+                                 :col col
+                                 :value (cond
+                                          (aget cell "v") (aget cell "v")
+                                          (aget cell "w") (aget cell "w")
+                                          :else nil)
+                                 :type (case (aget cell "t")
+                                         "s" "STRING" "n" "NUMERIC" "b" "BOOLEAN"
+                                         "f" "FORMULA" "z" "BLANK" "STRING")}))]
+            (swap! cells concat chunk-cells)
+            (println (str "✅ Chunk " (inc chunk-idx) " completed: " (count chunk-cells) " valid cells, total so far: " (count @cells)))
+            ;; Give JS a chance to garbage collect between chunks
+            (when (exists? js/setTimeout)
+              (js/setTimeout #() 0))))
+        
+        (println (str "🎉 Sheet '" sheet-name "' complete: " (count @cells) " total cells extracted"))
         {:sheet-name sheet-name
-         :cells cells}))))
+         :cells @cells}))))
 
 (defn extract-data
   "Extract structured data from XLSX file.
@@ -64,12 +71,11 @@
   
   Returns a map with sheet data and metadata"
   [file-buffer & {:keys [sheets]}]
-  (let [read-options (cond-> #js {:type "buffer"}
-                       include-styles (doto
-                                       (aset "cellStyles" true)
-                                        (aset "cellHTML" true)
-                                        (aset "cellDates" true)
-                                        (aset "cellNF" true)))
+  (let [read-options #js {:type "buffer"
+                          :cellStyles false    ; Skip style info for performance
+                          :cellHTML false      ; Skip HTML for performance
+                          :cellDates false     ; Skip date parsing for performance
+                          :cellNF false}       ; Skip number formatting for performance
         workbook (XLSX/read file-buffer read-options)
         sheet-names (js->clj (aget workbook "SheetNames"))
         selected-sheets (if sheets (filter (set sheets) sheet-names) sheet-names)

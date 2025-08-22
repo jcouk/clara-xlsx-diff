@@ -1,7 +1,7 @@
 (ns clara-xlsx-diff.main
   "Main entry point for the compiled JavaScript library"
   (:require
-   [clara-xlsx-diff.rules]
+   [clara-xlsx-diff.rules :as diff-rules]
    [clara-xlsx-diff.cljs.xlsx :as xlsx]
    [clara-xlsx-diff.eav :as local-eav]
    [clara.rules :as rules :include-macros true]
@@ -17,30 +17,13 @@
   [eav1 eav2]
   (let [session1 (eav.rules/upsert session (concat eav1 eav2))
         session2 (rules/fire-rules session1)
-        output-records  (->> (get-in session2 [:store :eav-index])
-                             (filter (fn [[_entity-id data]]
-                                       (and (map? data)
-                                            (some #(= "output" (namespace %)) (keys data)))))
-                             (into [])
-                             (map second))
-        summary-results (->> (get-in session2 [:store :eav-index])
-                             (filter (fn [[_entity-id data]]
-                                       (and (map? data)
-                                            (some #(= "sheetInfo" (namespace %)) (keys data)))))
-                             (into [])
-                              ;; return a single object with {:key {:maxCol, :maxRow, :v1Results, :v2Results}}
-                             (map (fn [[_entity-id data]] ;; _entity-id should be the parent key
-                                    (let [v1-results (get data :sheetInfo/v1Results)
-                                          v2-results (get data :sheetInfo/v2Results)]
-                                      {:sheetName (name _entity-id)
-                                       :maxCol (get data :sheetInfo/maxCol)
-                                       :maxRow (get data :sheetInfo/maxRow)
-                                       :v1Results v1-results
-                                       :v2Results v2-results})))
-                        
-                             ;;  put all the results together in a map
-                             (into {} (map (fn [m] [(keyword (:sheetName m)) m])))
-                             )]
+        output-records (->> (rules/query session2 diff-rules/get-all-output-records)
+                           (map (fn [{:keys [?output]}]
+                                  (map (fn [output]
+                                         (dissoc output :eav/eid))
+                                       ?output)))
+                           first)
+        summary-results (diff-rules/return-output-summary-record output-records)]
     {:cells output-records
      :summary summary-results}))
 
@@ -52,26 +35,21 @@
    (compare-xlsx-buffers file1-buffer file2-buffer "file1" "file2"))
   ([file1-buffer file2-buffer file1-name file2-name]
    (try
-     ;; Ensure we have Uint8Array for XLSX processing
      (let [file1-array (if (instance? js/Uint8Array file1-buffer)
                          file1-buffer
                          (js/Uint8Array. file1-buffer))
            file2-array (if (instance? js/Uint8Array file2-buffer)
                          file2-buffer
                          (js/Uint8Array. file2-buffer))
-
-           ;; Extract XLSX data using our ClojureScript implementation
+           
            data1 (xlsx/extract-data file1-array)
            data2 (xlsx/extract-data file2-array)
-
-           ;; Convert to EAV triples
+           
            eav1 (local-eav/xlsx->eav data1 :version :v1)
            eav2 (local-eav/xlsx->eav data2 :version :v2)
-
-           ;; Analyze differences
+           
            changes (analyze-changes eav1 eav2)]
 
-       ;; Return JavaScript-compatible object
        #js {:success true
             :file1 file1-name
             :file2 file2-name
@@ -88,7 +66,6 @@
 (defn ^:export init
   "Initialize the library"
   []
-  (println "Clara XLSX Diff library initialized")
   #js {:version "1.0.0"
        :description "Cross-platform XLSX comparison using Clara Rules"})
 
